@@ -1,0 +1,41 @@
+export const en = {
+  'app.name': 'Freifunk Meet',
+  'common.cancel': 'Cancel',
+  'common.close': 'Close',
+  'common.ok': 'OK',
+  'home.inputLabel': 'Room name or link',
+  'home.inputPlaceholder': 'my-room or https://meet.ffmuc.net/…',
+  'home.join': 'Join',
+  'home.recent': 'Recent meetings',
+  'home.recentEmpty': 'No recent meetings.',
+  'home.removeRecent': 'Remove "{room}" from recent meetings?',
+  'home.remove': 'Remove',
+  'join.joining': 'Joining…',
+  'join.invalid': 'This is not a room name or a meeting link.',
+  'join.reserveHint':
+    'This link opens the room reservation. Use "My rooms" to reserve a room.',
+  'role.host': 'Host',
+  'role.speaker': 'Speaker',
+  'role.viewer': 'Viewer',
+  'error.invalid': 'The link is not valid.',
+  'error.unknown': 'The room or the link is unknown.',
+  'error.forbidden': 'A speaker link cannot join as host.',
+  'error.replaced': 'This link was replaced by new links.',
+  'error.deleted': 'The room was deleted.',
+  'error.expired': 'The room expired.',
+  'error.too_many_requests':
+    'Too many requests. Wait some minutes, then try again.',
+  'error.malformed': 'The request is not valid.',
+  'error.internal': 'The server has a problem. Try again later.',
+  'error.pow_malformed': 'The anti-spam check failed. Try again.',
+  'error.pow_bad_mac': 'The anti-spam check failed. Try again.',
+  'error.pow_expired': 'The anti-spam check expired. Try again.',
+  'error.pow_insufficient': 'The anti-spam check failed. Try again.',
+  'error.pow_replay': 'The anti-spam check was used before. Try again.',
+  'error.network': 'No connection to the server. Check your network.',
+  'error.aborted': 'Stopped.',
+  'error.http': 'The server sent an error ({status}).',
+};
+
+export type MessageKey = keyof typeof en;
+export type Messages = Record<MessageKey, string>;
