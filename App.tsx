@@ -5,12 +5,13 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { BackHandler, StatusBar, StyleSheet } from 'react-native';
+import { AppState, BackHandler, StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useDeepLinks } from './src/deeplinks';
 import { errorText } from './src/errors';
 import { t } from './src/i18n';
 import { parseInput, planJoin } from './src/join';
+import { applyDeviceLocale } from './src/locale';
 import { importRoom } from './src/myRooms';
 import { Navigation, NavigationProvider, Route } from './src/navigation';
 import { CreateRoomScreen } from './src/screens/CreateRoomScreen';
@@ -20,17 +21,25 @@ import { ImportScreen } from './src/screens/ImportScreen';
 import { MeetingScreen } from './src/screens/MeetingScreen';
 import { RoomScreen } from './src/screens/RoomScreen';
 import { RoomsScreen } from './src/screens/RoomsScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
+import { roomOfExtendLink, syncReminders } from './src/reminders';
 import { addRecent } from './src/storage/recent';
+import { loadRooms, onRoomsChanged } from './src/storage/rooms';
+import { Settings, loadSettings } from './src/storage/settings';
 import { applyThemePref, loadThemePref } from './src/storage/themePref';
 import { SERVER_URL, useTheme } from './src/theme';
 
+applyDeviceLocale();
+
 function App() {
   const c = useTheme();
+  const [lang, setLang] = useState(0);
   const [stack, setStack] = useState<Route[]>([{ name: 'home' }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [recentVersion, setRecentVersion] = useState(0);
   const joinSeq = useRef(0);
+  const [settings, setSettings] = useState<Settings>();
 
   const nav = useMemo<Navigation>(
     () => ({
@@ -145,9 +154,42 @@ function App() {
 
   useEffect(() => {
     loadThemePref().then(applyThemePref);
+    loadSettings().then(setSettings);
+    const appState = AppState.addEventListener('change', st => {
+      if (st === 'active' && applyDeviceLocale()) {
+        setLang(v => v + 1);
+      }
+    });
+    loadRooms()
+      .then(syncReminders)
+      .catch(() => {});
+    const unsub = onRoomsChanged(rooms => {
+      syncReminders(rooms).catch(() => {});
+    });
+    return () => {
+      appState.remove();
+      unsub();
+    };
   }, []);
 
-  useDeepLinks(openLink);
+  const onDeepLink = useCallback(
+    (url: string) => {
+      const room = roomOfExtendLink(url);
+      if (room) {
+        joinSeq.current++;
+        nav.reset(
+          { name: 'rooms' },
+          { name: 'room', room },
+          { name: 'extend', room },
+        );
+        return;
+      }
+      openLink(url);
+    },
+    [nav, openLink],
+  );
+
+  useDeepLinks(onDeepLink);
 
   const route = nav.route;
   const screen = () => {
@@ -168,6 +210,8 @@ function App() {
         );
       case 'extend':
         return <ExtendScreen room={route.room} />;
+      case 'settings':
+        return <SettingsScreen onChange={setSettings} />;
       default:
         return (
           <HomeScreen
@@ -196,11 +240,13 @@ function App() {
             <MeetingScreen
               key={`${route.target.server}/${route.target.room}/${route.target.role}`}
               target={route.target}
+              options={settings}
               onClose={nav.pop}
             />
           </SafeAreaView>
         ) : (
           <SafeAreaView
+            key={lang}
             style={[styles.container, { backgroundColor: c.background }]}
           >
             {screen()}

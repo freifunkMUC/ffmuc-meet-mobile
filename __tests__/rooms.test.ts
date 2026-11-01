@@ -1,6 +1,7 @@
 import {
   getRoom,
   loadRooms,
+  onRoomsChanged,
   removeRoom,
   saveRoomView,
   setSecretStore,
@@ -69,4 +70,15 @@ test('broken data gives an empty list', async () => {
   expect(await loadRooms()).toEqual([]);
   saved = '[{"room":"r","key":"k","expires":"e","jwt":"no"}]';
   expect(await loadRooms()).toEqual([{ room: 'r', key: 'k', expires: 'e' }]);
+});
+
+test('listeners get the sorted list after each change', async () => {
+  const seen: string[][] = [];
+  const off = onRoomsChanged(list => seen.push(list.map(r => r.room)));
+  await saveRoomView(view('r-a', K1, '2030-02-01T00:00:00Z'));
+  await saveRoomView(view('r-b', K2, '2030-01-01T00:00:00Z'));
+  await removeRoom('r-b');
+  off();
+  await removeRoom('r-a');
+  expect(seen).toEqual([['r-a'], ['r-b', 'r-a'], ['r-a']]);
 });

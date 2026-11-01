@@ -1,5 +1,5 @@
 import { ReserveError } from '../src/reserve/client';
-import { parseInput, planJoin, describeLink } from '../src/join';
+import { parseInput, planJoin, describeLink, recentJoin } from '../src/join';
 
 const KEY = 'AAAAAAAAAAAAAAAAAAAAAA';
 const info = (role: 'host' | 'speaker') => ({
@@ -159,5 +159,67 @@ describe('describeLink', () => {
     } else {
       expect(r).toMatchObject(expected);
     }
+  });
+});
+
+describe('plain rooms join without the reserve API', () => {
+  const fetchSpy = jest.fn();
+  beforeEach(() => {
+    fetchSpy.mockReset();
+    (global as { fetch: unknown }).fetch = fetchSpy;
+  });
+
+  test.each([
+    ['my-room', 'https://meet.ffmuc.net', 'my-room'],
+    ['https://meet.ffmuc.net/MyTeam', 'https://meet.ffmuc.net', 'MyTeam'],
+    ['meet.ffmuc.net/stammtisch', 'https://meet.ffmuc.net', 'stammtisch'],
+    ['ffmuc-meet://meet.ffmuc.net/abc', 'https://meet.ffmuc.net', 'abc'],
+    ['jitsi-meet://meet.ffmuc.net/abc', 'https://meet.ffmuc.net', 'abc'],
+    [
+      'https://meet.ffmuc.net/r-bcdfghjkmnpqrs',
+      'https://meet.ffmuc.net',
+      'r-bcdfghjkmnpqrs',
+    ],
+    ['https://meet.example.org/abc', 'https://meet.example.org', 'abc'],
+  ])('%s', async (input, server, room) => {
+    const c = fakeClient();
+    const plan = await planJoin(parseInput(input), c.get);
+    expect(plan).toEqual({
+      kind: 'meeting',
+      target: { server, room, role: 'viewer' },
+    });
+    expect(c.join).not.toHaveBeenCalled();
+    // Also with the real client: no network request at all.
+    await planJoin(parseInput(input));
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('recentJoin', () => {
+  const R = 'r-bcdfghjkmnpqrs';
+  const keys = new Map([[R, KEY]]);
+
+  test('open room: plain URL, no badge', () => {
+    expect(
+      recentJoin({ server: 'https://meet.ffmuc.net', room: 'my room' }, keys),
+    ).toEqual({ url: 'https://meet.ffmuc.net/my%20room' });
+  });
+
+  test('reserved room in My rooms: host link', () => {
+    expect(
+      recentJoin({ server: 'https://meet.ffmuc.net', room: R }, keys),
+    ).toEqual({ url: `https://meet.ffmuc.net/reserve/h/${KEY}`, role: 'host' });
+  });
+
+  test('other reserved room: viewer', () => {
+    expect(
+      recentJoin({ server: 'https://meet.ffmuc.net', room: R }, new Map()),
+    ).toEqual({ url: `https://meet.ffmuc.net/${R}`, role: 'viewer' });
+  });
+
+  test('other server: no host link, no badge', () => {
+    expect(
+      recentJoin({ server: 'https://meet.example.org', room: R }, keys),
+    ).toEqual({ url: `https://meet.example.org/${R}` });
   });
 });
