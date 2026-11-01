@@ -183,6 +183,13 @@ describe('ReserveClient', () => {
     },
   );
 
+  test('delete returns {deleted: true}, not a room view', async () => {
+    const { fn } = mockFetch([{ status: 200, body: { deleted: true } }]);
+    await expect(
+      new ReserveClient({ fetch: fn, sha256 }).delete('K'),
+    ).resolves.toEqual({ deleted: true });
+  });
+
   test('errors become ReserveError', async () => {
     const { fn } = mockFetch([
       { status: 410, body: { error: 'room expired', reason: 'expired' } },
