@@ -3,14 +3,19 @@ import type { MeetingTarget } from './join';
 
 export type Route =
   | { name: 'home' }
-  | { name: 'meeting'; target: MeetingTarget };
+  | { name: 'meeting'; target: MeetingTarget }
+  | { name: 'rooms' }
+  | { name: 'create' }
+  | { name: 'import' }
+  | { name: 'room'; room: string }
+  | { name: 'extend'; room: string };
 
 export interface Navigation {
   route: Route;
   push(route: Route): void;
   pop(): void;
-  /** Replaces the stack with home plus the given route. */
-  reset(route?: Route): void;
+  /** Replaces the stack with home plus the given routes. */
+  reset(...routes: Route[]): void;
 }
 
 export const NavigationContext = createContext<Navigation | null>(null);

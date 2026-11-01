@@ -4,6 +4,8 @@ import {
   ReserveError,
   parseLink,
 } from './reserve/client';
+import { sha256 } from './crypto/sha256';
+import { nativePowSolver } from './native/pow';
 import { RESERVE_BASE, SERVER_URL } from './theme';
 
 export type MeetingRole = 'host' | 'speaker' | 'viewer';
@@ -30,6 +32,8 @@ export function clientFor(server: string = SERVER_URL): ReserveClient {
   if (!c) {
     c = new ReserveClient({
       baseUrl: server === SERVER_URL ? RESERVE_BASE : `${server}/reserve`,
+      powSolver: nativePowSolver,
+      sha256,
     });
     clients.set(server, c);
   }
@@ -93,5 +97,58 @@ export async function planJoin(
     }
     default:
       return { kind: 'invalid' };
+  }
+}
+
+export type LinkRole = 'host' | 'speaker' | 'viewer' | 'open' | 'manage';
+
+export interface LinkPreview {
+  role: LinkRole;
+  server: string;
+  /** Known for room links only. Secret links show the room after joining. */
+  room?: string;
+  /** The link can be saved to "My rooms". */
+  canSave: boolean;
+}
+
+const RESERVED_ROOM = /^r-[a-z0-9]{14}$/;
+
+/** What a pasted text is, before any request. Null if it is not a link. */
+export function describeLink(input: string): LinkPreview | null {
+  if (!input.trim()) {
+    return null;
+  }
+  const link = parseInput(input);
+  switch (link.kind) {
+    case 'host':
+    case 'speaker':
+      return {
+        role: link.kind,
+        server: link.server,
+        canSave: link.kind === 'host' && link.server === SERVER_URL,
+      };
+    case 'manage':
+      return {
+        role: 'manage',
+        server: link.server,
+        canSave: link.server === SERVER_URL,
+      };
+    case 'room':
+      if (link.jwt) {
+        return {
+          role: 'host',
+          server: link.server,
+          room: link.room,
+          canSave: link.server === SERVER_URL,
+        };
+      }
+      return {
+        role: RESERVED_ROOM.test(link.room) ? 'viewer' : 'open',
+        server: link.server,
+        room: link.room,
+        canSave: false,
+      };
+    default:
+      return null;
   }
 }

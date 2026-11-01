@@ -1,47 +1,77 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  FlatList,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { SectionTitle } from '../components/SectionTitle';
 import { t } from '../i18n';
+import { describeLink } from '../join';
+import { formatDate, isExpired } from '../format';
+import { useNavigation } from '../navigation';
 import { RecentMeeting, loadRecent, removeRecent } from '../storage/recent';
-import { SERVER_URL, colors, radius, spacing } from '../theme';
+import { StoredRoom, loadRooms } from '../storage/rooms';
+import {
+  RESERVE_BASE,
+  SERVER_URL,
+  makeStyles,
+  smallRadius,
+  spacing,
+  useTheme,
+} from '../theme';
 
 interface Props {
   busy: boolean;
   error?: string;
   onJoin: (input: string) => void;
+  /** Adds a host or manage link to "My rooms". */
+  onSave: (input: string) => void;
   /** Changes when the recent list may have changed. */
   recentVersion: number;
-  header?: React.ReactNode;
 }
+
+const host = (server: string) => server.replace(/^https?:\/\//, '');
 
 export function HomeScreen({
   busy,
   error,
   onJoin,
+  onSave,
   recentVersion,
-  header,
 }: Props) {
+  const c = useTheme();
+  const s = useStyles();
+  const nav = useNavigation();
   const [input, setInput] = useState('');
   const [recent, setRecent] = useState<RecentMeeting[]>([]);
+  const [rooms, setRooms] = useState<StoredRoom[]>([]);
+  const preview = useMemo(() => describeLink(input), [input]);
 
   useEffect(() => {
     loadRecent().then(setRecent);
   }, [recentVersion]);
 
+  useEffect(() => {
+    loadRooms()
+      .then(setRooms)
+      .catch(() => setRooms([]));
+  }, [recentVersion]);
+
+  const nextRooms = rooms.filter(r => !isExpired(r.expires)).slice(0, 3);
+
   const join = useCallback(() => {
-    if (input.trim()) {
+    if (preview) {
       onJoin(input);
     }
-  }, [input, onJoin]);
+  }, [input, onJoin, preview]);
 
   const confirmRemove = (r: RecentMeeting) =>
     Alert.alert(t('home.removeRecent', { room: r.room }), undefined, [
@@ -53,97 +83,214 @@ export function HomeScreen({
       },
     ]);
 
+  const joinRole =
+    preview?.role === 'manage' ? 'host' : preview?.role ?? 'viewer';
+
   return (
-    <View style={styles.container}>
-      <View style={styles.brand}>
-        <Image source={require('../../assets/logo.png')} style={styles.logo} />
-        <Text style={styles.title}>{t('app.name')}</Text>
+    <ScrollView
+      contentContainerStyle={s.container}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={s.brand}>
+        <Image source={require('../../assets/logo.png')} style={s.logo} />
+        <Text style={s.title}>{t('app.name')}</Text>
       </View>
-      {header}
-      <Text style={styles.label}>{t('home.inputLabel')}</Text>
-      <TextInput
-        testID="join-input"
-        value={input}
-        onChangeText={setInput}
-        onSubmitEditing={join}
-        placeholder={t('home.inputPlaceholder')}
-        placeholderTextColor={colors.textMuted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="url"
-        returnKeyType="go"
-        style={styles.input}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button
-        testID="join-button"
-        title={t('home.join')}
-        onPress={join}
-        busy={busy}
-        disabled={!input.trim()}
-        style={styles.joinButton}
-      />
-      <Text style={styles.section}>{t('home.recent')}</Text>
-      <FlatList
-        data={recent}
-        keyExtractor={r => `${r.server}/${r.room}`}
-        ListEmptyComponent={
-          <Text style={styles.muted}>{t('home.recentEmpty')}</Text>
-        }
-        renderItem={({ item }) => (
+
+      <Card>
+        <Text style={s.label} nativeID="join-label">
+          {t('home.inputLabel')}
+        </Text>
+        <TextInput
+          testID="join-input"
+          accessibilityLabelledBy="join-label"
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={join}
+          placeholder={t('home.inputPlaceholder')}
+          placeholderTextColor={c.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          returnKeyType="go"
+          style={s.input}
+        />
+        <Text style={s.help}>{t('home.inputHelp')}</Text>
+
+        {preview ? (
+          <View style={s.preview} accessibilityLiveRegion="polite">
+            <Badge role={preview.role} />
+            <Text style={s.room}>
+              {preview.room
+                ? t('home.room', { room: preview.room })
+                : t('home.roomAfterJoin')}
+            </Text>
+            {preview.server !== SERVER_URL ? (
+              <Text style={s.help}>
+                {t('home.otherServer', { server: host(preview.server) })}
+              </Text>
+            ) : null}
+            <Text style={s.help}>{t(`role.${preview.role}Hint`)}</Text>
+          </View>
+        ) : null}
+
+        {error ? (
+          <Text style={s.error} accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null}
+        <Button
+          testID="join-button"
+          title={
+            preview && preview.role !== 'open'
+              ? t('home.joinAs', { role: t(`role.${joinRole}`) })
+              : t('home.join')
+          }
+          onPress={join}
+          busy={busy}
+          disabled={!preview}
+          style={s.button}
+        />
+        {preview?.canSave ? (
+          <Button
+            kind="secondary"
+            title={t('home.save')}
+            onPress={() => onSave(input)}
+            disabled={busy}
+            style={s.button}
+          />
+        ) : null}
+      </Card>
+
+      <Card>
+        <Text style={s.cardTitle}>{t('home.reserved')}</Text>
+        <Text style={s.help}>{t('home.reservedHint')}</Text>
+        {nextRooms.map(r => (
+          <View key={r.room} style={s.roomRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint={t('home.openRoomHint')}
+              onPress={() => nav.push({ name: 'room', room: r.room })}
+              style={s.roomInfo}
+            >
+              <Text style={s.recentRoom} numberOfLines={1}>
+                {r.room}
+              </Text>
+              <Text style={s.help}>
+                {t('rooms.expires', { date: formatDate(r.expires) })}
+              </Text>
+            </Pressable>
+            <Button
+              kind="secondary"
+              title={t('room.joinHost')}
+              onPress={() => onJoin(`${RESERVE_BASE}/h/${r.key}`)}
+              disabled={busy}
+              style={s.roomJoin}
+            />
+          </View>
+        ))}
+        {rooms.length > 0 ? (
+          <Button
+            kind="secondary"
+            title={t('home.allRooms', { count: rooms.length })}
+            onPress={() => nav.push({ name: 'rooms' })}
+            style={s.button}
+          />
+        ) : null}
+        <Button
+          title={t('rooms.create')}
+          hint={t('rooms.createHint')}
+          onPress={() => nav.push({ name: 'create' })}
+          style={s.button}
+        />
+        <Button
+          kind="secondary"
+          title={t('rooms.import')}
+          hint={t('rooms.importHint')}
+          onPress={() => nav.push({ name: 'import' })}
+          style={s.button}
+        />
+      </Card>
+
+      <SectionTitle>{t('home.recent')}</SectionTitle>
+      {recent.length === 0 ? (
+        <Text style={s.help}>{t('home.recentEmpty')}</Text>
+      ) : (
+        recent.map(item => (
           <Pressable
-            style={styles.recentItem}
+            key={`${item.server}/${item.room}`}
+            accessibilityRole="button"
+            accessibilityHint={t('home.removeHint')}
+            style={s.recentItem}
             onPress={() =>
               onJoin(`${item.server}/${encodeURIComponent(item.room)}`)
             }
             onLongPress={() => confirmRemove(item)}
           >
-            <Text style={styles.recentRoom}>{item.room}</Text>
+            <Text style={s.recentRoom}>{item.room}</Text>
             {item.server !== SERVER_URL ? (
-              <Text style={styles.muted}>
-                {item.server.replace(/^https?:\/\//, '')}
-              </Text>
+              <Text style={s.help}>{host(item.server)}</Text>
             ) : null}
           </Pressable>
-        )}
-      />
-    </View>
+        ))
+      )}
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.m },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.l,
-  },
-  logo: { width: 40, height: 40, marginRight: spacing.s },
-  title: { color: colors.text, fontSize: 24, fontWeight: '700' },
-  label: { color: colors.textMuted, marginBottom: spacing.xs },
-  input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius,
-    color: colors.text,
-    paddingHorizontal: spacing.m,
-    minHeight: 48,
-    fontSize: 16,
-  },
-  error: { color: colors.danger, marginTop: spacing.s },
-  joinButton: { marginTop: spacing.m },
-  section: {
-    color: colors.sun,
-    fontWeight: '600',
-    marginTop: spacing.l,
-    marginBottom: spacing.s,
-  },
-  muted: { color: colors.textMuted },
-  recentItem: {
-    paddingVertical: spacing.m,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  recentRoom: { color: colors.text, fontSize: 16 },
-});
+const useStyles = makeStyles(c =>
+  StyleSheet.create({
+    container: { padding: spacing.m },
+    brand: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.l,
+    },
+    logo: { width: 44, height: 44, marginRight: spacing.s },
+    title: { color: c.text, fontSize: 28, fontWeight: '800' },
+    cardTitle: { color: c.text, fontSize: 18, fontWeight: '700' },
+    label: { color: c.text, fontWeight: '600', marginBottom: spacing.s },
+    input: {
+      backgroundColor: c.surface,
+      borderColor: c.border,
+      borderWidth: 1,
+      borderRadius: smallRadius,
+      color: c.text,
+      paddingHorizontal: spacing.m,
+      minHeight: 50,
+      fontSize: 16,
+    },
+    help: { color: c.textMuted, marginTop: spacing.xs, lineHeight: 20 },
+    preview: {
+      marginTop: spacing.m,
+      padding: spacing.m,
+      borderRadius: smallRadius,
+      backgroundColor: c.surface,
+      gap: spacing.xs,
+    },
+    room: {
+      color: c.text,
+      fontSize: 16,
+      fontWeight: '600',
+      marginTop: spacing.xs,
+    },
+    error: { color: c.danger, marginTop: spacing.m, lineHeight: 20 },
+    button: { marginTop: spacing.m },
+    recentItem: {
+      paddingVertical: spacing.m,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.border,
+    },
+    recentRoom: { color: c.text, fontSize: 16 },
+    roomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.s,
+      marginTop: spacing.m,
+      paddingTop: spacing.m,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    roomInfo: { flex: 1 },
+    roomJoin: { minWidth: 130 },
+  }),
+);

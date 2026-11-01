@@ -58,8 +58,22 @@ export interface PowProgress {
   ratio: number;
 }
 
+/**
+ * Tests `count` nonces from `start` (decimal, ascending). Returns the first
+ * nonce that has `difficulty` leading zero bits, or null. Use it to run the
+ * hashing in native code or in a worker.
+ */
+export type PowBatchSolver = (
+  challenge: string,
+  difficulty: number,
+  start: number,
+  count: number,
+) => Promise<number | null>;
+
 export interface PowOptions {
-  sha256: Sha256;
+  /** One of sha256 or batchSolver is necessary. batchSolver is used first. */
+  sha256?: Sha256;
+  batchSolver?: PowBatchSolver;
   onProgress?: (p: PowProgress) => void;
   signal?: AbortSignal;
   /** Hashes between progress reports and yields to the event loop. */
@@ -75,6 +89,8 @@ export interface ReserveClientOptions {
   fetch?: typeof fetch;
   /** SHA-256 implementation. Default WebCrypto (crypto.subtle). */
   sha256?: Sha256;
+  /** Faster PoW, for example in native code. Used instead of sha256. */
+  powSolver?: PowBatchSolver;
   /** Hashes per PoW batch. */
   powBatchSize?: number;
 }
