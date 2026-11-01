@@ -5,6 +5,7 @@ import type {
   Challenge,
   JoinInfo,
   JoinRole,
+  PowBatchSolver,
   PowRequestOptions,
   ReserveClientOptions,
   RoomView,
@@ -22,6 +23,7 @@ export class ReserveClient {
   readonly baseUrl: string;
   private readonly fetchFn: typeof fetch;
   private readonly sha256?: Sha256;
+  private readonly powSolver?: PowBatchSolver;
   private readonly powBatchSize?: number;
   /** JWTs in memory only, by room and role. Never persisted. */
   private readonly jwtCache = new Map<string, JoinInfo>();
@@ -35,7 +37,9 @@ export class ReserveClient {
       throw new Error('ReserveClient: no fetch');
     }
     this.fetchFn = f.bind(globalThis);
-    this.sha256 = opts.sha256 ?? webCryptoSha256();
+    this.powSolver = opts.powSolver;
+    this.sha256 =
+      opts.sha256 ?? (opts.powSolver ? undefined : webCryptoSha256());
     this.powBatchSize = opts.powBatchSize;
   }
 
@@ -94,12 +98,13 @@ export class ReserveClient {
     body: Record<string, unknown>,
     opts: PowRequestOptions = {},
   ): Promise<T> {
-    if (!this.sha256) {
+    if (!this.sha256 && !this.powSolver) {
       throw new Error('ReserveClient: no SHA-256 implementation');
     }
     const c = await this.challenge(opts.signal);
     const nonce = await solvePow(c.challenge, c.difficulty, {
       sha256: this.sha256,
+      batchSolver: this.powSolver,
       onProgress: opts.onProgress,
       signal: opts.signal,
       batchSize: this.powBatchSize,

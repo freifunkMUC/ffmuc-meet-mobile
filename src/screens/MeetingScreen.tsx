@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { JitsiMeeting, JitsiRefProps } from '@jitsi/react-native-sdk';
 import type { MeetingTarget } from '../join';
-import { colors } from '../theme';
+import { dark } from '../theme';
 
 export interface MeetingOptions {
   displayName?: string;
@@ -58,5 +58,5 @@ export function MeetingScreen({ target, options = {}, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: dark.background },
 });

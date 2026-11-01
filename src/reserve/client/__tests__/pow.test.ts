@@ -80,3 +80,51 @@ describe('solvePow', () => {
     await expect(p).rejects.toMatchObject({ code: 'aborted' });
   });
 });
+
+describe('solvePow with batchSolver', () => {
+  const jsSolver = async (
+    challenge: string,
+    difficulty: number,
+    start: number,
+    count: number,
+  ) => {
+    for (let n = start; n < start + count; n++) {
+      if (leadingZeroBits(sha256(`${challenge}:${n}`)) >= difficulty) {
+        return n;
+      }
+    }
+    return null;
+  };
+
+  test('finds the same nonce as the hash loop', async () => {
+    const progress: number[] = [];
+    const nonce = await solvePow('test-challenge', 12, {
+      batchSolver: jsSolver,
+      batchSize: 500,
+      onProgress: p => progress.push(p.ratio),
+    });
+    expect(nonce).toBe('1202');
+    expect(progress.length).toBe(3);
+    expect(progress[progress.length - 1]).toBe(1);
+  });
+
+  test('batchSolver is used before sha256', async () => {
+    const solver = jest.fn(async () => 7);
+    const hash = jest.fn(sha256);
+    expect(await solvePow('x', 30, { sha256: hash, batchSolver: solver })).toBe(
+      '7',
+    );
+    expect(hash).not.toHaveBeenCalled();
+    expect(solver).toHaveBeenCalledWith('x', 30, 0, 20000);
+  });
+
+  test('stops when aborted', async () => {
+    const ac = new AbortController();
+    const p = solvePow('never', 64, {
+      batchSolver: async () => null,
+      signal: ac.signal,
+      onProgress: () => ac.abort(),
+    });
+    await expect(p).rejects.toMatchObject({ code: 'aborted' });
+  });
+});

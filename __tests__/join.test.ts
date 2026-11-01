@@ -1,5 +1,5 @@
 import { ReserveError } from '../src/reserve/client';
-import { parseInput, planJoin } from '../src/join';
+import { parseInput, planJoin, describeLink } from '../src/join';
 
 const KEY = 'AAAAAAAAAAAAAAAAAAAAAA';
 const info = (role: 'host' | 'speaker') => ({
@@ -129,5 +129,35 @@ describe('planJoin', () => {
     await expect(
       planJoin(parseInput(`https://meet.ffmuc.net/reserve/s/${KEY}`), c.get),
     ).rejects.toMatchObject({ code: 'forbidden' });
+  });
+});
+
+describe('describeLink', () => {
+  const K = 'AAAAAAAAAAAAAAAAAAAAAA';
+  test.each([
+    ['', null],
+    ['   ', null],
+    [`https://meet.ffmuc.net/reserve/h/${K}`, { role: 'host', canSave: true }],
+    [
+      `https://meet.ffmuc.net/reserve/s/${K}`,
+      { role: 'speaker', canSave: false },
+    ],
+    [
+      `https://meet.ffmuc.net/reserve/#k=${K}`,
+      { role: 'manage', canSave: true },
+    ],
+    [
+      'https://meet.ffmuc.net/r-abcdefghijklmn',
+      { role: 'viewer', room: 'r-abcdefghijklmn' },
+    ],
+    ['team-weekly', { role: 'open', room: 'team-weekly', canSave: false }],
+    [`https://other.example/reserve/h/${K}`, { role: 'host', canSave: false }],
+  ])('%s', (input, expected) => {
+    const r = describeLink(input);
+    if (expected === null) {
+      expect(r).toBeNull();
+    } else {
+      expect(r).toMatchObject(expected);
+    }
   });
 });

@@ -37,13 +37,31 @@ export async function solvePow(
   difficulty: number,
   opts: PowOptions,
 ): Promise<string> {
-  const { sha256, onProgress, signal } = opts;
-  const batch = Math.max(1, opts.batchSize ?? 2048);
+  const { sha256, batchSolver, onProgress, signal } = opts;
   if (difficulty <= 0) {
     return String(opts.start ?? 0);
   }
   const expected = 2 ** difficulty;
   let hashes = 0;
+  if (batchSolver) {
+    const batch = Math.max(1, opts.batchSize ?? 20000);
+    for (let n = opts.start ?? 0; ; n += batch) {
+      if (signal?.aborted) {
+        throw new ReserveError('aborted', 'aborted');
+      }
+      const found = await batchSolver(challenge, difficulty, n, batch);
+      if (found !== null && found !== undefined) {
+        onProgress?.({ hashes: hashes + found - n + 1, ratio: 1 });
+        return String(found);
+      }
+      hashes += batch;
+      onProgress?.({ hashes, ratio: 1 - Math.exp(-hashes / expected) });
+    }
+  }
+  if (!sha256) {
+    throw new Error('solvePow: no sha256 or batchSolver');
+  }
+  const batch = Math.max(1, opts.batchSize ?? 2048);
   for (let n = opts.start ?? 0; ; ) {
     if (signal?.aborted) {
       throw new ReserveError('aborted', 'aborted');
