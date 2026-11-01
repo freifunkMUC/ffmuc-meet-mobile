@@ -8,7 +8,8 @@ export type Route =
   | { name: 'create' }
   | { name: 'import' }
   | { name: 'room'; room: string }
-  | { name: 'extend'; room: string };
+  | { name: 'extend'; room: string }
+  | { name: 'settings' };
 
 export interface Navigation {
   route: Route;

@@ -25,6 +25,8 @@ interface Props {
   busy?: boolean;
   style?: ViewStyle;
   testID?: string;
+  /** Screen reader label when the title alone is not clear. */
+  accessibilityLabel?: string;
 }
 
 export function Button({
@@ -36,6 +38,7 @@ export function Button({
   busy,
   style,
   testID,
+  accessibilityLabel,
 }: Props) {
   const c = useTheme();
   const s = useStyles();
@@ -45,6 +48,7 @@ export function Button({
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityHint={hint}
       accessibilityState={{ disabled: !!off, busy: !!busy }}
       disabled={off}

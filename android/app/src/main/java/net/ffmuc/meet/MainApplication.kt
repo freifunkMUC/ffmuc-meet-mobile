@@ -8,6 +8,7 @@ import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.oney.WebRTCModule.WebRTCModuleOptions
 import net.ffmuc.meet.pow.PowPackage
+import net.ffmuc.meet.reminders.ReminderPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -17,6 +18,7 @@ class MainApplication : Application(), ReactApplication {
       packageList =
         PackageList(this).packages.apply {
           add(PowPackage())
+          add(ReminderPackage())
         },
     )
   }

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Freifunk Meet</string>
+    <string name="reminder_channel">Room expiry reminders</string>
 </resources>

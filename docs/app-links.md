@@ -10,6 +10,7 @@ The app opens these links on Android and iOS:
 | `ffmuc-meet://reserve/h/<key>` | Join as host. |
 | `ffmuc-meet://reserve/s/<key>` | Join as speaker. |
 | `ffmuc-meet://<server>/<room>` | Join the room on another Jitsi server. |
+| `ffmuc-meet://app/extend/<room>` | Open the "Extend" screen of a room in "My rooms". Reminders use this link. |
 | `jitsi-meet://…` | Same as `ffmuc-meet://…`. |
 
 ## HTTPS links

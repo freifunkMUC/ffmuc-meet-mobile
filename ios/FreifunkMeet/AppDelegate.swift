@@ -2,9 +2,10 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import UserNotifications
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ReactNativeDelegate?
@@ -17,6 +18,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
+
+    UNUserNotificationCenter.current().delegate = self
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
@@ -39,6 +42,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
     RCTLinkingManager.application(app, open: url, options: options)
+  }
+
+  // Show reminders also when the app is open.
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .list, .sound])
+  }
+
+  // A tapped reminder opens its ffmuc-meet:// link. The link is also kept
+  // for JS (FfmucReminders.takePendingUrl) when the app was not running.
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    if let link = response.notification.request.content.userInfo["url"] as? String,
+       let url = URL(string: link) {
+      UserDefaults.standard.set(link, forKey: "net.ffmuc.meet.pendingUrl")
+      _ = RCTLinkingManager.application(UIApplication.shared, open: url, options: [:])
+    }
+    completionHandler()
   }
 
   // Universal links for https://meet.ffmuc.net.

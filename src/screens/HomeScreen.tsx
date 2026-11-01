@@ -12,9 +12,8 @@ import {
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { SectionTitle } from '../components/SectionTitle';
 import { t } from '../i18n';
-import { describeLink } from '../join';
+import { describeLink, recentJoin } from '../join';
 import { formatDate, isExpired } from '../format';
 import { useNavigation } from '../navigation';
 import { RecentMeeting, loadRecent, removeRecent } from '../storage/recent';
@@ -73,6 +72,11 @@ export function HomeScreen({
     }
   }, [input, onJoin, preview]);
 
+  const hostKeys = useMemo(
+    () => new Map(rooms.map(r => [r.room, r.key])),
+    [rooms],
+  );
+
   const confirmRemove = (r: RecentMeeting) =>
     Alert.alert(t('home.removeRecent', { room: r.room }), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
@@ -93,7 +97,17 @@ export function HomeScreen({
     >
       <View style={s.brand}>
         <Image source={require('../../assets/logo.png')} style={s.logo} />
-        <Text style={s.title}>{t('app.name')}</Text>
+        <Text style={s.title} numberOfLines={1}>
+          {t('app.name')}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => nav.push({ name: 'settings' })}
+          hitSlop={8}
+          style={s.settings}
+        >
+          <Text style={s.settingsText}>{t('settings.title')}</Text>
+        </Pressable>
       </View>
 
       <Card>
@@ -211,28 +225,57 @@ export function HomeScreen({
         />
       </Card>
 
-      <SectionTitle>{t('home.recent')}</SectionTitle>
-      {recent.length === 0 ? (
-        <Text style={s.help}>{t('home.recentEmpty')}</Text>
-      ) : (
-        recent.map(item => (
-          <Pressable
-            key={`${item.server}/${item.room}`}
-            accessibilityRole="button"
-            accessibilityHint={t('home.removeHint')}
-            style={s.recentItem}
-            onPress={() =>
-              onJoin(`${item.server}/${encodeURIComponent(item.room)}`)
-            }
-            onLongPress={() => confirmRemove(item)}
-          >
-            <Text style={s.recentRoom}>{item.room}</Text>
-            {item.server !== SERVER_URL ? (
-              <Text style={s.help}>{host(item.server)}</Text>
-            ) : null}
-          </Pressable>
-        ))
-      )}
+      <Card style={s.recentCard}>
+        <Text style={s.cardTitle}>{t('home.recent')}</Text>
+        {recent.length === 0 ? (
+          <Text style={s.help}>{t('home.recentEmpty')}</Text>
+        ) : (
+          recent.map(item => {
+            const rj = recentJoin(item, hostKeys);
+            return (
+              <View key={`${item.server}/${item.room}`} style={s.roomRow}>
+                <View style={s.roomInfo}>
+                  <View style={s.recentTitle}>
+                    <Text style={s.recentRoom} numberOfLines={1}>
+                      {item.room}
+                    </Text>
+                    {rj.role ? <Badge role={rj.role} /> : null}
+                  </View>
+                  {item.server !== SERVER_URL ? (
+                    <Text style={s.help}>{host(item.server)}</Text>
+                  ) : null}
+                  {item.at ? (
+                    <Text style={s.help}>
+                      {t('home.lastJoined', {
+                        date: formatDate(new Date(item.at).toISOString()),
+                      })}
+                    </Text>
+                  ) : null}
+                </View>
+                <Button
+                  kind="secondary"
+                  title={t('home.join')}
+                  accessibilityLabel={t('home.joinRoom', { room: item.room })}
+                  onPress={() => onJoin(rj.url)}
+                  disabled={busy}
+                  style={s.recentJoin}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.removeRecent', {
+                    room: item.room,
+                  })}
+                  onPress={() => confirmRemove(item)}
+                  hitSlop={8}
+                  style={s.remove}
+                >
+                  <Text style={s.removeText}>{t('home.remove')}</Text>
+                </Pressable>
+              </View>
+            );
+          })
+        )}
+      </Card>
     </ScrollView>
   );
 }
@@ -246,7 +289,16 @@ const useStyles = makeStyles(c =>
       marginBottom: spacing.l,
     },
     logo: { width: 44, height: 44, marginRight: spacing.s },
-    title: { color: c.text, fontSize: 28, fontWeight: '800' },
+    title: { flex: 1, color: c.text, fontSize: 28, fontWeight: '800' },
+    settings: {
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: smallRadius,
+      paddingHorizontal: spacing.m,
+      paddingVertical: spacing.s,
+      backgroundColor: c.card,
+    },
+    settingsText: { color: c.text, fontWeight: '600', fontSize: 15 },
     cardTitle: { color: c.text, fontSize: 18, fontWeight: '700' },
     label: { color: c.text, fontWeight: '600', marginBottom: spacing.s },
     input: {
@@ -275,12 +327,16 @@ const useStyles = makeStyles(c =>
     },
     error: { color: c.danger, marginTop: spacing.m, lineHeight: 20 },
     button: { marginTop: spacing.m },
-    recentItem: {
-      paddingVertical: spacing.m,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: c.border,
+    recentCard: { marginTop: spacing.m },
+    recentTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing.s },
+    recentRoom: { color: c.text, fontSize: 16, flexShrink: 1 },
+    recentJoin: { minWidth: 90 },
+    remove: { paddingVertical: spacing.s },
+    removeText: {
+      color: c.textMuted,
+      fontSize: 14,
+      textDecorationLine: 'underline',
     },
-    recentRoom: { color: c.text, fontSize: 16 },
     roomRow: {
       flexDirection: 'row',
       alignItems: 'center',

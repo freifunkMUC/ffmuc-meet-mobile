@@ -75,8 +75,21 @@ async function read(): Promise<StoredRoom[]> {
   }
 }
 
+type Listener = (rooms: StoredRoom[]) => void;
+const listeners = new Set<Listener>();
+
+/** Calls fn after each change of the stored rooms. Returns "unsubscribe". */
+export function onRoomsChanged(fn: Listener): () => void {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
 async function write(list: StoredRoom[]): Promise<StoredRoom[]> {
   await store.save(JSON.stringify(list));
+  const sorted = sortRooms(list);
+  listeners.forEach(fn => fn(sorted));
   return list;
 }
 

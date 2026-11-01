@@ -1,4 +1,5 @@
 import {
+  isReservedRoomName,
   ParsedLink,
   ReserveClient,
   ReserveError,
@@ -151,4 +152,23 @@ export function describeLink(input: string): LinkPreview | null {
     default:
       return null;
   }
+}
+
+/**
+ * How to join a recent meeting again. A reserved room in "My rooms" joins
+ * as host. Other reserved rooms join as viewer: the app keeps no speaker
+ * secrets. Open rooms have no role badge.
+ */
+export function recentJoin(
+  item: { server: string; room: string },
+  hostKeys: ReadonlyMap<string, string>,
+): { url: string; role?: LinkRole } {
+  const plain = `${item.server}/${encodeURIComponent(item.room)}`;
+  if (item.server !== SERVER_URL || !isReservedRoomName(item.room)) {
+    return { url: plain };
+  }
+  const key = hostKeys.get(item.room);
+  return key
+    ? { url: `${RESERVE_BASE}/h/${key}`, role: 'host' }
+    : { url: plain, role: 'viewer' };
 }
