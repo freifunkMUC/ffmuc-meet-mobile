@@ -272,6 +272,7 @@
 					"-lc++",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "net.ffmuc.meet";
+				CODE_SIGN_ENTITLEMENTS = FreifunkMeet/FreifunkMeet.entitlements;
 				PRODUCT_NAME = FreifunkMeet;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -301,6 +302,7 @@
 					"-lc++",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "net.ffmuc.meet";
+				CODE_SIGN_ENTITLEMENTS = FreifunkMeet/FreifunkMeet.entitlements;
 				PRODUCT_NAME = FreifunkMeet;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 5.0;

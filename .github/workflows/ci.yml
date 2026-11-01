@@ -26,6 +26,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test -- --ci
+      - name: Bundle JavaScript (release)
+        run: npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output /tmp/index.android.bundle --assets-dest /tmp/assets
 
   android:
     name: Android debug build

@@ -6,6 +6,8 @@ buildscript {
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
         kotlinVersion = "2.1.20"
+        // Read by @jitsi/react-native-sdk. Keep equal to the React Native AGP version.
+        gradlePluginVersion = "8.12.0"
     }
     repositories {
         google()
